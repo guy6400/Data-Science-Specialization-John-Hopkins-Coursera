@@ -42,7 +42,7 @@ names(features) #check
 
 relevant_feat <- grep("(mean|std)\\(\\)", features[, feat_name]) # retain only mean and sd var names
 measure <- features[relevant_feat, feat_name] # new var containing only relevant
-measure <- gsub('[()]', '', measurements) # remove unnecessary strings
+measure <- gsub('[()]', '', measure) # remove unnecessary strings
 
 
 ## load train data:
@@ -94,6 +94,8 @@ df_casted <- dcast(data = df_melt,num_subject+Activity ~ variable,
                    fun.aggregate = mean)
 
 
-write.csv(df_casted, file = "tidyData.csv")
+#write.csv(df_casted, file = "tidyData.csv")
+
+write.table(df_casted, file = "tidyData.txt",row.name=FALSE)
 
 
