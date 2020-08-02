@@ -1,0 +1,270 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+output: 
+  html_document:
+    keep_md: true
+---
+
+
+## Introduction
+
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the “quantified self” movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+The data for this assignment can be downloaded from the course web site:
+
+* Dataset: [Activity monitoring data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip) 
+
+The variables included in this dataset are:
+
+steps: Number of steps taking in a 5-minute interval (missing values are coded as 𝙽𝙰) </br>
+date: The date on which the measurement was taken in YYYY-MM-DD format </br>
+interval: Identifier for the 5-minute interval in which measurement was taken </br>
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset. 
+
+
+
+## libraries
+
+```{r,echo = TRUE, results="hide"}
+
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(ggthemes)
+library(xtable)
+
+```
+
+
+## Loading and preprocessing the data
+
+change date column from char to date
+
+```{r,echo = TRUE, results="hide"}
+setwd("C:\\Users\\Owner\\Documents\\GitHub\\RepData_PeerAssessment1")
+
+df <-read.csv("activity.csv")
+
+df$date <- ymd(df$date)
+
+
+```
+
+
+## What is mean total number of steps taken per day?
+
+
+
+1.Calculate the total number of steps taken per day
+
+```{r,echo = TRUE,results ="asis"}
+df_group <-df %>%
+group_by(date)%>%
+    summarise(steps=sum(steps,na.rm = TRUE))
+
+xt<-xtable(df_group)
+print(xt,type = "html") 
+```
+
+
+
+2.Histogram of the total number of steps taken each day
+
+
+```{r,echo = TRUE}
+
+a<-ggplot(df_group,aes(steps)) +theme_clean()
+
+a+ geom_histogram(bins = 61, fill = "purple")+
+    xlab("Steps per Day")+
+    ylab("Frequency")+
+    ggtitle("Frequency of Total Steps Taken Each Day")
+
+
+
+```
+
+
+3.Mean and median number of steps taken each day
+
+```{r,echo = TRUE}
+
+step_mean <- mean(df_group$steps , na.rm = TRUE)
+step_median<-median(df_group$steps, na.rm = TRUE)
+
+
+list <- list(Steps_Mean =step_mean  ,Steps_Median=step_median)
+
+
+
+list
+
+
+```
+
+
+## What is the average daily activity pattern?
+
+
+4.Time series plot of the average number of steps taken
+
+```{r,echo = TRUE}
+
+df_group_interval <-df %>%
+group_by(interval)%>%
+    summarise(steps=mean(steps,na.rm = TRUE))
+
+
+b<- ggplot(df_group_interval,aes(interval,steps)) +geom_line(aes(color=steps))
+
+b+theme_clean()+
+    scale_color_gradient(low = "black", high = "green")+
+    theme(legend.position = "none")+
+    ggtitle("Average Number of Steps in Interval")+
+    xlab("Interval") + ylab("Average Steps")
+
+
+
+```
+
+5.The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r,echo = TRUE}
+
+df_group_interval<-arrange(df_group_interval,desc(steps))
+
+head(df_group_interval,1)
+
+
+```
+
+
+## Imputing missing values
+
+
+6.Code to describe and show a strategy for imputing missing data
+
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with 𝙽𝙰s
+
+```{r,echo = TRUE}
+
+sum(is.na(df))
+
+
+```
+
+Devise a strategy for filling in all of the missing values in the dataset.
+
+replace all missing with steps median
+
+```{r,echo = TRUE}
+
+
+df$steps[is.na(df$steps)] <- median(df$steps, na.rm = TRUE)
+
+df_fixed<-df
+
+sum(is.na(df_fixed))
+
+
+```
+
+7.Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r,echo = TRUE}
+
+df_group2 <-df_fixed %>%
+group_by(date)%>%
+    summarise(steps=sum(steps))
+
+
+c<-ggplot(df_group2,aes(steps)) +theme_clean()
+
+c+ geom_histogram(bins = 61, fill = "purple")+
+    xlab("Steps per Day")+
+    ylab("Frequency")+
+    ggtitle("Frequency of Total Steps Taken Each Day")
+
+
+```
+
+meana and median difference after replacing NA values
+
+```{r,echo = TRUE}
+
+step_mean2 <- mean(df_group2$steps , na.rm = TRUE)
+step_median2<-median(df_group2$steps, na.rm = TRUE)
+
+
+list <- list(Steps_Mean =step_mean2  ,Steps_Median=step_median2)
+
+
+
+list
+
+
+
+```
+
+
+
+## Are there differences in activity patterns between weekdays and weekends
+
+
+There were no differences since the median for the steps variable was 0
+
+
+8.Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day
+
+```{r,echo=TRUE}
+
+df_fixed$day<-wday(df_fixed$date)
+
+
+
+
+weekday <- c(2,3,4,5,6)
+weekend <- c(7,1)
+
+
+df_fixed <- df_fixed %>% 
+    mutate( day_binary = case_when(
+        df_fixed$day %in% weekday ~ "Weekday",
+        df_fixed$day %in% weekend ~ "weekend"))
+
+
+```
+
+
+
+
+Panel plot
+
+
+```{r,echo=TRUE}
+
+df_group_interval2 <-df_fixed %>%
+group_by(interval)%>%
+    summarise(steps=mean(steps,na.rm = TRUE),
+              days=as.factor(day_binary))
+
+
+b<- ggplot(df_group_interval2,aes(interval,steps,color = as.numeric(days))) +geom_line()
+
+b+theme_clean()+
+    facet_grid(days~.)+
+    scale_color_gradient(low = "blue", high = "purple")+
+    theme(legend.position = "none")+
+    ggtitle("Average Number of Steps in Interval - Weekdays VS Weekends")+
+    xlab("Interval") + ylab("Average Steps")
+
+
+
+```
+
+
+
