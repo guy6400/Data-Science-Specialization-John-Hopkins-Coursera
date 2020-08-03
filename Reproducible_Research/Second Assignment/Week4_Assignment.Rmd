@@ -1,0 +1,195 @@
+---
+title: "Examining the Negative Effects of Weather Events in the USA"
+author: "Guy Katriel"
+output: html_document
+---
+
+
+## Synopsis
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities.  Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+
+In this short analysis, I have attempted to numerically measure the impact of severe weather events.
+I have used the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database for this purpose.
+Consistencies were found in damages caused to human lives, as the top 10 event types for both fatalities and injuries were identical,
+out of those Top 10, the most damaging event in both aspects were tornadoes.
+
+In terms of financial damages, floods were found to be the most harmful of event types(145B in damages), yet Hurricanes/Typhons 
+& Tornadoes combined came to a close second(138B).
+
+
+
+## Data Processing
+
+```{r,message=FALSE, warning=FALSE,results="hide"}
+#Libraries
+
+
+library(dplyr)
+library(ggplot2)
+library(ggthemes)
+library(gridExtra)
+```
+
+
+Data was acquired from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database.
+This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+More details can be found:
+
+-National Weather Service [storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+
+-National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+
+
+
+```{r,results="hide"}
+
+#import data
+
+setwd("G:\\Scripting\\R\\John Hopkins Data Science\\Reproducible Research\\Week 4 Assignment")
+
+url = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+
+download.file(url,file.path(getwd(), "dataFiles.bz2"))
+
+
+df <- read.csv(bzfile("dataFiles.bz2"))
+
+```
+
+
+
+Damage proportion indicators are "B" for Billions of Dollars, "M" for millions of dollars and "K" for thousands of dollars
+if no specified indicator, amounts will be used as is.
+The data was found to have some irrelevant symbols among these indicators, the numeral values attaches to them were regarded as the
+financial damage amounts(with no modifier).
+
+
+```{r,results="hide", message=FALSE, warning=FALSE}
+#create numeric financial damage estimate:
+
+
+# if no specified indicator, or other then those, amounts will be used as is
+
+unique(df$PROPDMGEXP)
+
+indicator <- c("","+", "0", "5", "6", "?", "4", "2", "3", "h", "7", "H", "-", "1", "8", " ")
+
+
+df <- df %>% 
+    mutate( financial_damages = case_when(
+        df$PROPDMGEXP == "K" ~ df$PROPDMG *1000,
+        df$PROPDMGEXP == "M" ~ df$PROPDMG *1000000,
+        df$PROPDMGEXP == "m" ~ df$PROPDMG *1000000,        
+        df$PROPDMGEXP == "B" ~ df$PROPDMG *1000000000,
+        df$PROPDMGEXP %in% indicator ~ df$PROPDMG,
+    )
+)
+
+
+
+
+```
+
+
+The data was grouped according to the event type, as to measure the overall differences on an event type level.
+
+```{r,results="hide"}
+
+#create grouped data according to event type
+
+
+df_agg <- df %>%
+    group_by(EVTYPE)%>% 
+    summarize(fatel = sum(FATALITIES,na.rm = TRUE),
+              Wounded = sum(INJURIES,na.rm = TRUE),
+              financial = sum(financial_damages,na.rm = TRUE)) 
+
+```
+
+Date files including only topmost events according to relevant measures were created: 
+
+```{r,results="hide"}
+##sort to create df with only top 10 fatalities, injuries & financial damages.
+
+df_agg <-arrange(df_agg,desc(fatel))
+df_fatel <- head(df_agg,10)
+
+df_agg <-arrange(df_agg,desc(Wounded))
+df_wound <- head(df_agg,10)
+
+df_agg <-arrange(df_agg,desc(financial))
+df_financial <- head(df_agg,10)
+
+
+
+```
+
+
+## Results
+
+### Evant harmfullness
+- Harmfulness to population health
+
+The topmost event types for both measures of harmfulness to population health were found to include the same evant types.
+
+```{r}
+complete.cases(df_wound$Wounded,df_fatel$fatel)
+```
+
+
+The most damaging event for both aspects of harmfulness to population health were tornadoes
+
+```{r}
+
+
+
+a<-ggplot(df_wound, aes( x= reorder(EVTYPE,Wounded), y=Wounded ,fill =Wounded )) +theme_calc()
+
+a<-a+geom_col()+ coord_flip()+
+    scale_fill_gradient(low = "#ff6666", high = "red")+
+    theme(legend.position = "none")+
+    xlab("Event Type")+
+    ylab("Wounded")+
+    geom_text(aes(label=Wounded),hjust=1,vjust=0)
+
+
+b<-ggplot(df_fatel, aes( x= reorder(EVTYPE,fatel), y=fatel ,fill =fatel )) +theme_calc()
+
+b<-b+geom_col()+ coord_flip()+
+    scale_fill_gradient(low = "#ff6666", high = "red")+
+    theme(legend.position = "none")+
+    xlab("Event Type")+
+    ylab("Fatalities")+
+    geom_text(aes(label=fatel),hjust=1,vjust=0)
+
+
+
+grid.arrange(a,b,nrow=2,top = "Harmfulness to Population Health - Wounded and Fatalities")
+```
+
+- Harmfulness in terms of financial damages
+
+In terms of financial damages, floods were found to be the most harmful of event types(145B in damages), yet Hurricanes/Typhons 
+& Tornadoes combined came to a close second(138B).
+
+```{r}
+
+df_financial$bilion <- round(df_financial$financial/1000000000)
+
+c<-ggplot(df_financial,aes(x=reorder(EVTYPE,financial),y=financial,fill=financial))+theme_calc()
+
+
+
+
+c+geom_col()+ coord_flip()+
+    scale_fill_gradient(low = "#b2d8b2", high = "#004c00")+
+    theme(legend.position = "none")+
+    xlab("Event Type")+
+    ylab("Financial Loss in Billions")+
+    geom_text(aes(label=paste(bilion,"B")),hjust=1,vjust=0)+
+    ggtitle("Financial Damages from Weather Events ")+theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
